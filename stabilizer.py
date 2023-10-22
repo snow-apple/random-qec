@@ -285,6 +285,12 @@ def decoding(state, n):
         state = apply_cnot(state, 0, n-1-i)
     return state
 
+def apply_error(initial, apply):
+    for i in range(len(apply)):
+        if apply[i] == 'X':
+            initial = apply_x(initial, i)
+    return initial
+
 def apply_error_recovery(initial, apply):
     for i in range(len(apply)):
         if apply[i] == 'X':
@@ -375,3 +381,61 @@ def single_recovery_probability(recov_op, p):
     prob = ((1-p)**i)*((p)**(x))
 
     return prob
+
+
+def single_recovery_probability_func(recov_op):
+    recoverydict = {}
+    x = 0
+    i = 0
+    for r in recov_op:
+        if r == 'X':
+            x+=1
+        elif r == 'I':
+            i+=1
+    prob = lambda p: ((1-p)**i)*((p)**(x))
+
+    return prob
+
+def get_error_table_values(error_table, p):
+    error_table_values = []
+    for error_row in error_table:
+        error_table_values.append((error_row[0], error_row[1](p), error_row[2]))
+    return error_table_values
+
+def get_error_table(gates):
+    initial = ['000', '100']
+    log = ['XII+', 'ZII+']
+    stabs = ['IZI+', 'IIZ+']
+    codewords = find_codewords(initial, gates)
+    newlogs = evolve_operators(log, gates)
+    newstabilizers = evolve_operators(stabs, gates)
+
+    errors = construct_list_errors(3,3)
+    error_table = []
+    for error in errors:
+        errorstate = apply_error(codewords[0], error)
+        result = measure_stabilizers(newstabilizers, errorstate)
+        prob = single_recovery_probability_func(error)
+        error_table.append([error, prob, result])
+    return error_table
+
+def get_logical_error_probs(physical_error_probs, error_table):
+    logical_error_probs = []
+    for p in physical_error_probs:
+        error_table_values = get_error_table_values(error_table, p)
+        stabs_to_error_probs = {}
+        for error_row_values in error_table_values:
+            error_code = error_row_values[0]
+            error_prob = error_row_values[1]
+            error_stabs = tuple(error_row_values[2])
+            if error_stabs not in stabs_to_error_probs:
+                stabs_to_error_probs[error_stabs] = []
+
+            stabs_to_error_probs[error_stabs].append(error_prob)
+        logical_error_prob_value = 0
+        for error_stabs in stabs_to_error_probs:
+            logical_error_prob_value += sum(stabs_to_error_probs[error_stabs]) - max(stabs_to_error_probs[error_stabs])
+        logical_error_probs.append(logical_error_prob_value)
+
+    logical_error_probs = np.array(logical_error_probs)
+    return logical_error_probs
