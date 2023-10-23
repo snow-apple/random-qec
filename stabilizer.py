@@ -92,8 +92,8 @@ def returnarray(list):
 
 #random circuit
 
-def randcircuit(n,d):
-    number = d
+def gen_random_encoding(n,num_gates):
+    number = num_gates
     finallist =[]
     while number > 0:
         if random.randrange(0, 2, 1) == 0:
