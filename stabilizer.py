@@ -1,6 +1,7 @@
 import numpy as np
 import random
 from tabulate import tabulate
+import matplotlib.pyplot as plt
 
 def sigmaz():
     return np.array([[1,0], [0, -1]])
@@ -402,15 +403,35 @@ def get_error_table_values(error_table, p):
         error_table_values.append((error_row[0], error_row[1](p), error_row[2]))
     return error_table_values
 
-def get_error_table(gates):
-    initial = ['000', '100']
-    log = ['XII+', 'ZII+']
-    stabs = ['IZI+', 'IIZ+']
-    codewords = find_codewords(initial, gates)
-    newlogs = evolve_operators(log, gates)
-    newstabilizers = evolve_operators(stabs, gates)
+def get_initial(n):
+    initial_states = ['0', '1']
+    initial_logs = ['X', 'Z']
+    initial_stabs = []
+    for i in range(n-1):
+        for j in range(len(initial_logs)):
+            initial_logs[j] += 'I'
+        for j in range(len(initial_states)):
+            initial_states[j] += '0'
+        initial_stabs.append('I'*n)
+    for j in range(len(initial_logs)):
+            initial_logs[j] += '+'
+    count = 1
+    for j in range(len(initial_stabs)):
+        initial_stabs[j]= initial_stabs[j][:count] + 'Z' + initial_stabs[j][count+1:] + "+"
+        count+=1
+    return initial_states, initial_logs, initial_stabs
 
-    errors = construct_list_errors(3,3)
+
+def get_error_table(gates, n=3):
+    # initial = ['000', '100']
+    # log = ['XII+', 'ZII+']
+    # stabs = ['IZI+', 'IIZ+']
+    initial_states,initial_log, initial_stabs = get_initial(n)
+    codewords = find_codewords(initial_states, gates)
+    newlogs = evolve_operators(initial_log, gates)
+    newstabilizers = evolve_operators(initial_stabs, gates)
+
+    errors = construct_list_errors(n,n)
     error_table = []
     for error in errors:
         errorstate = apply_error(codewords[0], error)
@@ -439,3 +460,24 @@ def get_logical_error_probs(physical_error_probs, error_table):
 
     logical_error_probs = np.array(logical_error_probs)
     return logical_error_probs
+
+def run_code_analysis(codes):
+    for code_name, code_info in codes.items():
+        code_info["error_table"] = get_error_table(code_info["gates"], n=code_info["n"])
+        code_info["physical_error_probs"] = np.linspace(0,1,101)
+        code_info["logical_error_probs"] = get_logical_error_probs(code_info["physical_error_probs"], code_info["error_table"])
+
+def plot_analysis(codes):
+    fig,ax = plt.subplots(1,1,dpi=200,figsize = (4,3))
+    for code_name, code_info in codes.items():
+        ax.plot(code_info["physical_error_probs"],code_info["logical_error_probs"], label=code_name )
+    ax.legend(fontsize=6)
+    ax.set_xlabel("Physical Error Rate (p)")
+    ax.set_ylabel("Logical Error Rate")
+    plt.plot()
+
+def repetition_code_gates(d):
+    gates = []
+    for i in range(d-1):
+        gates.append(('CX',(0,i+1)))
+    return gates
