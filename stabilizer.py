@@ -397,12 +397,6 @@ def single_recovery_probability_func(recov_op):
 
     return prob
 
-def get_error_table_values(error_table, p):
-    error_table_values = []
-    for error_row in error_table:
-        error_table_values.append((error_row[0], error_row[1](p), error_row[2]))
-    return error_table_values
-
 def get_initial(n):
     initial_states = ['0', '1']
     initial_logs = ['X', 'Z']
@@ -421,6 +415,12 @@ def get_initial(n):
         count+=1
     return initial_states, initial_logs, initial_stabs
 
+
+def get_error_table_values(error_table, p):
+    error_table_values = []
+    for error_row in error_table:
+        error_table_values.append((error_row[0], error_row[1](p), error_row[2]))
+    return error_table_values
 
 def get_error_table(gates, n=3):
     # initial = ['000', '100']
@@ -461,11 +461,54 @@ def get_logical_error_probs(physical_error_probs, error_table):
     logical_error_probs = np.array(logical_error_probs)
     return logical_error_probs
 
-def run_code_analysis(codes):
+def get_logical_error_probs_static(physical_error_probs, error_table, p_static=0.01):
+
+    # calculating logical error lambda function
+    error_table_values_static = get_error_table_values(error_table, p_static)
+    stabs_to_error_probs = {}
+    stabs_to_error_prob_functions = {}
+    for j in range(len(error_table_values_static)):
+        error_row_values = error_table_values_static[j]
+        error_code = error_row_values[0]
+        error_prob = error_row_values[1]
+        error_stabs = tuple(error_row_values[2])
+        error_prob_function = error_table[j][1]
+
+        if error_stabs not in stabs_to_error_probs:
+            stabs_to_error_probs[error_stabs] = []
+            stabs_to_error_prob_functions[error_stabs] = []
+
+        stabs_to_error_probs[error_stabs].append(error_prob)
+        stabs_to_error_prob_functions[error_stabs].append(error_prob_function)
+    
+    highest_prob_function_list = []
+    for error_stabs, error_probs in stabs_to_error_probs.items():
+        most_probable_index = np.argmax(np.array(error_probs)) # returns index of highest probability
+        highest_prob_function_list.append(stabs_to_error_prob_functions[error_stabs][most_probable_index])
+    
+
+    def get_logical_error_prob(p):
+        prob_correct_error = 0
+        for error_prob_function in highest_prob_function_list:
+            prob_correct_error+=error_prob_function(p) # adding up probabilities of all errors that are correct
+        logical_error_prob = 1 - prob_correct_error
+        return logical_error_prob
+
+    logical_error_probs = []
+    for p in physical_error_probs:
+        logical_error_probs.append(get_logical_error_prob(p))
+    
+    logical_error_probs = np.array(logical_error_probs)
+    return logical_error_probs
+
+def run_code_analysis(codes, static=False, p_static = 0.01):
     for code_name, code_info in codes.items():
         code_info["error_table"] = get_error_table(code_info["gates"], n=code_info["n"])
         code_info["physical_error_probs"] = np.linspace(0,1,101)
-        code_info["logical_error_probs"] = get_logical_error_probs(code_info["physical_error_probs"], code_info["error_table"])
+        if static:
+            code_info["logical_error_probs"] = get_logical_error_probs_static(code_info["physical_error_probs"], code_info["error_table"], p_static=p_static)
+        else:
+            code_info["logical_error_probs"] = get_logical_error_probs(code_info["physical_error_probs"], code_info["error_table"])
 
 def plot_analysis(codes):
     fig,ax = plt.subplots(1,1,dpi=200,figsize = (4,3))
