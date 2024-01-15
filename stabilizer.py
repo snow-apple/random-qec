@@ -2,6 +2,7 @@ import numpy as np
 import random
 from tabulate import tabulate
 import matplotlib.pyplot as plt
+import math
 
 def sigmaz():
     return np.array([[1,0], [0, -1]])
@@ -524,3 +525,53 @@ def repetition_code_gates(d):
     for i in range(d-1):
         gates.append(('CX',(0,i+1)))
     return gates
+
+def plot_analysis_mutual(codes):
+    fig,ax = plt.subplots(1,1,dpi=200,figsize = (4,3))
+    for code_name, code_info in codes.items():
+        ax.plot(code_info["logical_error_probs"], code_info["Mutual Information"],label=code_name )
+    ax.legend(fontsize=6)
+    ax.set_ylabel("Mutual Information")
+    ax.set_xlabel("Logical Error Rate")
+    plt.plot()
+
+def run_code_analysis_mutual(codes, static=False, p_static = 0.01):
+    for code_name, code_info in codes.items():
+        code_info["error_table"] = get_error_table(code_info["gates"], n=code_info["n"])
+        code_info["physical_error_probs"] = np.linspace(0,1,101)
+        if static:
+            code_info["logical_error_probs"] = get_logical_error_probs_static(code_info["physical_error_probs"], code_info["error_table"], p_static=p_static)
+            code_info["Mutual Information"] = mutual_information(get_logical_error_probs_static(code_info["physical_error_probs"], code_info["error_table"], p_static=p_static))
+        else:
+            code_info["logical_error_probs"] = get_logical_error_probs(code_info["physical_error_probs"], code_info["error_table"])
+            code_info["Mutual Information"] = mutual_information(get_logical_error_probs(code_info["physical_error_probs"], code_info["error_table"]))
+
+def mutual_information(logical_error_probs):
+    mutual_info = []
+    for l in logical_error_probs:
+        if l ==0:
+            mutual_info.append(1)
+        elif l == 1:
+           mutual_info.append(1+ math.log2(1))
+        else:
+            mutual_info.append(1+ l*math.log2(l)+ (1-l)*math.log2(1-l))
+    return mutual_info
+    
+
+def plot_analysis_mutual_pe(codes):
+    fig,ax = plt.subplots(1,1,dpi=200,figsize = (4,3))
+    for code_name, code_info in codes.items():
+        ax.plot(code_info["physical_error_probs"], code_info["Mutual Information"],label=code_name )
+    ax.legend(fontsize=6)
+    ax.set_ylabel("Mutual Information")
+    ax.set_xlabel("Physical Error Rate")
+    plt.plot()
+
+def plot_analysis_fpe_pe(codes):
+    fig,ax = plt.subplots(1,1,dpi=200,figsize = (4,3))
+    for code_name, code_info in codes.items():
+        ax.plot(code_info["physical_error_probs"], code_info["Mutual Information"],label=code_name )
+    ax.legend(fontsize=6)
+    ax.set_ylabel("Mutual Information")
+    ax.set_xlabel("Physical Error Rate")
+    plt.plot()
