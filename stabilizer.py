@@ -49,7 +49,49 @@ def cnot(control, target, n):
         e_term = sub_e if i == 0 else np.kron(e_term,sub_e)
         
     return g_term + e_term
-            
+
+
+
+import numpy as np
+
+zero = np.array([[1], [0]])
+one = np.array([[0], [1]])
+
+def sigmax():
+    return np.array([[0, 1], [1, 0]])
+
+def ct(matrix):
+    return matrix.conj().T
+
+# def toffoli(control1, control2, target, n):
+#     for i in range(n):
+#         if i == control1:
+#             sub_g = zero@ct(zero)
+#             sub_e = one@ct(one)
+#             sub_f = zero@ct(zero)
+#             sub_h= one@ct(one)
+#         elif i == control2:
+#             sub_g = np.eye(2)
+#             sub_e = sigmax()
+#             sub_f = np.eye(2)
+#             sub_h = sigmax()
+#         elif i == target:
+#             sub_g = np.eye(2)
+#             sub_e = np.eye(2)
+#             sub_f = sigmax()
+#             sub_h = sigmax()
+#         else:
+#             sub_g = np.eye(2)
+#             sub_e = np.eye(2)
+#             sub_f = np.eye(2)
+#             sub_h = np.eye(2)
+        
+#         g_term = sub_g if i == 0 else np.kron(g_term, sub_g)
+#         e_term = sub_e if i == 0 else np.kron(e_term, sub_e)
+#         f_term = sub_f if i ==0 else np.kron(f_term, sub_f)
+#         h_term = sub_h if i ==0 else np.kron(h_term, sub_h)
+
+#     return g_term + e_term + f_term - h_term
 
 #applies cnot 
 def apply_cnot(string, control, target):
@@ -72,6 +114,19 @@ def apply_x(string, target):
         string = string[:target] + '1' + string[target+1:]
     return string
         
+def apply_toffoli(string, control1, control2, target):
+    if control1 == target or control2 == target or control1 == control2:
+        return string
+    newstring = ''
+    if string[control1] == '1' and string[control2]=='1':
+        if string[target] == '1':
+            newstring = string[:target]+'0'+string[target+1:]
+        else:
+            newstring= string[:target]+'1'+string[target+1:]
+    else:
+        newstring = string
+    return newstring
+    
 
 
 def returnarray(list):
@@ -107,7 +162,34 @@ def gen_random_encoding(n,num_gates):
             finallist.append(('CX',(first,second)))
         number -= 1
     return finallist
-            
+
+
+def gen_random_encoding_toffoli(n,num_gates):
+    number = num_gates
+    finallist =[]
+    while number > 0:
+        rand = random.randrange(0, 2, 1)
+        if rand == 0:
+            finallist.append(('X', (random.randrange(0,n,1),)))
+        elif rand == 1:
+            first = random.randrange(0, n, 1)
+            second = random.randrange(0, n, 1)
+            while first == second:
+                second = random.randrange(0, n, 1)
+            finallist.append(('CX',(first,second)))
+        else:
+            first = random.randrange(0, n, 1)
+            second = random.randrange(0, n, 1)
+            while first == second:
+                second = random.randrange(0, n, 1)
+            third = random.randrange(0, n, 1)
+            while third == second or third == first:
+                third = random.randrange(0, n, 1)
+            finallist.append(('T',(first,second, third)))
+        number -= 1
+    return finallist  
+
+
 def evolve_stabilizers(stabilizers, gates, logicals):
     stabilizerlist = []
     logicallist = []
@@ -175,6 +257,8 @@ def evolve(input, gate):
             return input[:-1] + flip_sign(input[-1])
         elif input[gate[1][0]] == 'X':
             return input
+    # elif gate[0] == 'T':
+        
     print("hi")
         
 
@@ -354,6 +438,8 @@ def find_codewords(initial,gates):
                 state = apply_x(state,x[1][0])
             elif x[0] == 'CX':
                 state = apply_cnot(state,x[1][0], x[1][1])
+            elif x[0] == 'T':
+                state = apply_toffoli(state,x[1][0], x[1][1],x[1][2])
         result.append(state)
     return result 
 
